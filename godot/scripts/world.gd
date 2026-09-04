@@ -5,35 +5,34 @@ extends Node3D
 @export var dead_ground: MeshInstance3D
 @export var world_environment: WorldEnvironment
 
-var awakened := false
-var bloom := 0.0
-var target_bloom := 0.0
+var awakened: bool = false
+var bloom: float = 0.0
+var target_bloom: float = 0.0
 var flowers: Array[Node3D] = []
 var birds: Array[Node3D] = []
 var rng := RandomNumberGenerator.new()
 
-func _ready():
+func _ready() -> void:
     rng.seed = 1307
     _build_foliage()
     _build_birds()
 
-func _process(delta):
-    var time := Time.get_ticks_msec() * 0.001
-
-    for i in flowers.size():
-        var f := flowers[i]
-        var d := f.global_position.distance_to(player.global_position)
-        var bend := clamp((2.0 - d) / 2.0, 0.0, 1.0)
+func _process(delta: float) -> void:
+    var time: float = Time.get_ticks_msec() * 0.001
+    for i in range(flowers.size()):
+        var f: Node3D = flowers[i]
+        var d: float = f.global_position.distance_to(player.global_position)
+        var bend: float = clamp((2.0 - d) / 2.0, 0.0, 1.0)
         f.rotation.z = sin(time * 2.2 + i * 0.73) * 0.035 + bend * 0.22
         f.rotation.x = cos(time * 1.7 + i * 0.41) * 0.025
 
-    for i in birds.size():
-        var b := birds[i]
-        var angle := time * (0.35 + i * 0.07) + i * 2.1
-        var radius := 7.5 + i * 1.6
+    for i in range(birds.size()):
+        var b: Node3D = birds[i]
+        var angle: float = time * (0.35 + i * 0.07) + i * 2.1
+        var radius: float = 7.5 + i * 1.6
         b.position = Vector3(cos(angle) * radius, 5.2 + sin(angle * 1.8) * 0.7, sin(angle) * radius)
         b.look_at(Vector3(cos(angle + 0.2) * radius, b.position.y, sin(angle + 0.2) * radius), Vector3.UP)
-        var escape := clamp((4.0 - b.global_position.distance_to(player.global_position)) / 4.0, 0.0, 1.0)
+        var escape: float = clamp((4.0 - b.global_position.distance_to(player.global_position)) / 4.0, 0.0, 1.0)
         b.position.y += escape * 2.5
 
     if not awakened and player.global_position.distance_to(seed_shrine.global_position) < 2.3 and Input.is_action_just_pressed("interact"):
@@ -45,25 +44,23 @@ func _process(delta):
     bloom = lerp(bloom, target_bloom, 1.0 - exp(-1.35 * delta))
     _apply_bloom()
 
-func _apply_bloom():
+func _apply_bloom() -> void:
     if dead_ground and dead_ground.material_override:
-        var mat := dead_ground.material_override as StandardMaterial3D
+        var mat: StandardMaterial3D = dead_ground.material_override as StandardMaterial3D
         mat.albedo_color = Color(0.30, 0.27, 0.29).lerp(Color(0.34, 0.58, 0.34), bloom)
-
-    for i in flowers.size():
-        var f := flowers[i]
-        var threshold := float(i) / max(1.0, float(flowers.size() - 1))
-        var life := clamp((bloom - threshold * 0.72) * 5.0, 0.0, 1.0)
+    for i in range(flowers.size()):
+        var f: Node3D = flowers[i]
+        var threshold: float = float(i) / max(1.0, float(flowers.size() - 1))
+        var life: float = clamp((bloom - threshold * 0.72) * 5.0, 0.0, 1.0)
         f.scale = Vector3.ONE * max(0.001, life)
-
     if seed_shrine:
         seed_shrine.scale = Vector3.ONE * (1.0 + sin(Time.get_ticks_msec() * 0.004) * 0.04)
 
-func _build_foliage():
-    var palette = [Color("f1a9c2"), Color("d8b2ff"), Color("f7df8d"), Color("9fd4ff")]
-    for i in 95:
-        var angle := rng.randf_range(0.0, TAU)
-        var radius := rng.randf_range(2.8, 11.8)
+func _build_foliage() -> void:
+    var palette: Array[Color] = [Color("f1a9c2"), Color("d8b2ff"), Color("f7df8d"), Color("9fd4ff")]
+    for i in range(95):
+        var angle: float = rng.randf_range(0.0, TAU)
+        var radius: float = rng.randf_range(2.8, 11.8)
         var p := Vector3(cos(angle) * radius, 0.22, sin(angle) * radius)
         if p.distance_to(seed_shrine.position) < 1.7:
             continue
@@ -71,7 +68,6 @@ func _build_foliage():
         flower.position = p
         flower.scale = Vector3.ONE * 0.001
         add_child(flower)
-
         var stem := MeshInstance3D.new()
         var stem_mesh := CylinderMesh.new()
         stem_mesh.top_radius = 0.025
@@ -83,7 +79,6 @@ func _build_foliage():
         stem_mat.albedo_color = Color("4d8a58")
         stem.material_override = stem_mat
         flower.add_child(stem)
-
         var blossom := MeshInstance3D.new()
         var blossom_mesh := SphereMesh.new()
         blossom_mesh.radius = rng.randf_range(0.09, 0.15)
@@ -99,8 +94,8 @@ func _build_foliage():
         flower.add_child(blossom)
         flowers.append(flower)
 
-func _build_birds():
-    for i in 4:
+func _build_birds() -> void:
+    for i in range(4):
         var bird := Node3D.new()
         add_child(bird)
         for side in [-1.0, 1.0]:

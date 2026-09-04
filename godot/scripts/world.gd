@@ -41,14 +41,14 @@ func _handle_puzzle() -> void:
     if awakened:
         return
     var nearest: int = -1
-    var nearest_dist := 99.0
+    var nearest_dist: float = 99.0
     for i in range(resonators.size()):
-        var d := resonators[i].global_position.distance_to(player.global_position)
+        var d: float = resonators[i].global_position.distance_to(player.global_position)
         if d < nearest_dist:
             nearest_dist = d
             nearest = i
     if nearest >= 0 and nearest_dist < 1.8 and Input.is_action_just_pressed("interact"):
-        var r := resonators[nearest]
+        var r: Node3D = resonators[nearest]
         if not r.get_meta("active", false):
             r.set_meta("active", true)
             solved_count += 1
@@ -63,54 +63,54 @@ func _handle_puzzle() -> void:
 
 func _animate_environment(time: float) -> void:
     for i in range(flowers.size()):
-        var f := flowers[i]
-        var d := f.global_position.distance_to(player.global_position)
-        var bend := clamp((1.8 - d) / 1.8, 0.0, 1.0)
+        var f: Node3D = flowers[i]
+        var d: float = f.global_position.distance_to(player.global_position)
+        var bend: float = clampf((1.8 - d) / 1.8, 0.0, 1.0)
         f.rotation.z = sin(time * 2.1 + i * 0.73) * 0.045 + bend * 0.32
         f.rotation.x = cos(time * 1.55 + i * 0.41) * 0.035
     for i in range(grasses.size()):
-        var g := grasses[i]
-        var d := g.global_position.distance_to(player.global_position)
-        var push := clamp((1.25 - d) / 1.25, 0.0, 1.0)
+        var g: Node3D = grasses[i]
+        var d: float = g.global_position.distance_to(player.global_position)
+        var push: float = clampf((1.25 - d) / 1.25, 0.0, 1.0)
         g.rotation.z = sin(time * 1.9 + i * 0.37) * 0.04 + push * 0.26
     for i in range(birds.size()):
-        var b := birds[i]
-        var angle := time * (0.28 + i * 0.045) + i * 1.8
-        var radius := 6.5 + i * 1.25
+        var b: Node3D = birds[i]
+        var angle: float = time * (0.28 + i * 0.045) + i * 1.8
+        var radius: float = 6.5 + i * 1.25
         var center := Vector3(-1.5, 0.0, -1.0)
         b.position = center + Vector3(cos(angle) * radius, 4.7 + sin(angle * 2.0) * 0.55, sin(angle) * radius)
         b.look_at(center + Vector3(cos(angle + 0.16) * radius, b.position.y, sin(angle + 0.16) * radius), Vector3.UP)
-        var escape := clamp((4.5 - b.global_position.distance_to(player.global_position)) / 4.5, 0.0, 1.0)
+        var escape: float = clampf((4.5 - b.global_position.distance_to(player.global_position)) / 4.5, 0.0, 1.0)
         b.position.y += escape * 2.7
         for child in b.get_children():
             if child is MeshInstance3D:
                 child.rotation.z += sin(time * 9.0 + i) * 0.018
     for i in range(fireflies.size()):
-        var f := fireflies[i]
-        f.position.y = 0.7 + sin(time * 1.8 + i) * 0.35
-        f.rotation.y += 0.01
+        var fly: Node3D = fireflies[i]
+        fly.position.y = 0.7 + sin(time * 1.8 + i) * 0.35
+        fly.rotation.y += 0.01
 
 func _apply_bloom(time: float) -> void:
     if dead_ground and dead_ground.material_override:
-        var mat := dead_ground.material_override as StandardMaterial3D
+        var mat: StandardMaterial3D = dead_ground.material_override as StandardMaterial3D
         mat.albedo_color = Color("4b4148").lerp(Color("688a55"), bloom)
-        mat.roughness = lerp(0.98, 0.72, bloom)
+        mat.roughness = lerpf(0.98, 0.72, bloom)
     if world_environment and world_environment.environment:
-        var env := world_environment.environment
+        var env: Environment = world_environment.environment
         env.background_color = Color("211b2b").lerp(Color("768bb2"), bloom * 0.82)
         env.ambient_light_color = Color("7f7896").lerp(Color("c6d5bd"), bloom)
         env.fog_light_color = Color("30283a").lerp(Color("b8c5c7"), bloom)
     for i in range(flowers.size()):
-        var f := flowers[i]
-        var dist := f.global_position.distance_to(bloom_origin)
-        var wave := bloom * 20.0 - dist
-        var life := clamp(wave * 0.55, 0.0, 1.0)
-        f.scale = Vector3.ONE * max(0.001, ease(life, -1.8))
+        var flower: Node3D = flowers[i]
+        var dist: float = flower.global_position.distance_to(bloom_origin)
+        var wave: float = bloom * 20.0 - dist
+        var life: float = clampf(wave * 0.55, 0.0, 1.0)
+        flower.scale = Vector3.ONE * maxf(0.001, ease(life, -1.8))
     for i in range(grasses.size()):
-        var g := grasses[i]
-        var dist := g.global_position.distance_to(bloom_origin)
-        var life := clamp((bloom * 19.0 - dist) * 0.45, 0.0, 1.0)
-        g.scale.y = max(0.05, ease(life, -1.4))
+        var grass: Node3D = grasses[i]
+        var dist: float = grass.global_position.distance_to(bloom_origin)
+        var life: float = clampf((bloom * 19.0 - dist) * 0.45, 0.0, 1.0)
+        grass.scale.y = maxf(0.05, ease(life, -1.4))
     for i in range(fireflies.size()):
         fireflies[i].visible = bloom > 0.35
     if seed_shrine:
@@ -253,7 +253,7 @@ func _build_fireflies() -> void:
         fireflies.append(glow)
 
 func _build_resonators() -> void:
-    var positions := [Vector3(-8.0, 0.0, 1.5), Vector3(2.5, 0.0, -8.0), Vector3(7.0, 0.0, 4.5)]
+    var positions: Array[Vector3] = [Vector3(-8.0, 0.0, 1.5), Vector3(2.5, 0.0, -8.0), Vector3(7.0, 0.0, 4.5)]
     for i in range(3):
         var r := Node3D.new()
         r.position = positions[i]

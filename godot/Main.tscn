@@ -1,0 +1,196 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource path="res://scripts/player.gd" type="Script" id="1_player"]
+[ext_resource path="res://scripts/world.gd" type="Script" id="2_world"]
+
+[sub_resource type="Environment" id="Env_main"]
+background_mode = 1
+background_color = Color(0.055, 0.045, 0.075, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.55, 0.62, 0.82, 1)
+ambient_light_energy = 1.25
+fog_enabled = true
+fog_light_color = Color(0.18, 0.16, 0.23, 1)
+fog_density = 0.015
+
+[sub_resource type="StandardMaterial3D" id="Mat_ground"]
+albedo_color = Color(0.30, 0.27, 0.29, 1)
+roughness = 0.95
+
+[sub_resource type="CylinderMesh" id="Mesh_ground"]
+top_radius = 12.5
+bottom_radius = 10.5
+height = 1.0
+radial_segments = 64
+
+[sub_resource type="CylinderShape3D" id="Shape_ground"]
+radius = 12.5
+height = 1.0
+
+[sub_resource type="CapsuleMesh" id="Mesh_body"]
+radius = 0.42
+height = 1.25
+
+[sub_resource type="CapsuleShape3D" id="Shape_player"]
+radius = 0.42
+height = 1.8
+
+[sub_resource type="SphereMesh" id="Mesh_head"]
+radius = 0.39
+height = 0.78
+
+[sub_resource type="StandardMaterial3D" id="Mat_skin"]
+albedo_color = Color(0.93, 0.67, 0.53, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_dress"]
+albedo_color = Color(0.73, 0.50, 0.65, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Mat_hair"]
+albedo_color = Color(0.14, 0.075, 0.05, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="Mat_teddy"]
+albedo_color = Color(0.57, 0.36, 0.22, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="Mat_seed"]
+albedo_color = Color(0.95, 0.73, 0.28, 1)
+emission_enabled = true
+emission = Color(1, 0.45, 0.08, 1)
+emission_energy_multiplier = 3.0
+
+[node name="Main" type="Node3D"]
+script = ExtResource("2_world")
+player = NodePath("Player")
+seed_shrine = NodePath("SeedShrine")
+dead_ground = NodePath("Planet/Ground")
+world_environment = NodePath("WorldEnvironment")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_main")
+
+[node name="MoonLight" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-52, -28, 0)
+light_color = Color(1, 0.76, 0.64, 1)
+light_energy = 2.4
+shadow_enabled = true
+
+[node name="FillLight" type="OmniLight3D" parent="."]
+position = Vector3(-4, 5, 3)
+light_color = Color(0.55, 0.65, 1, 1)
+light_energy = 5.0
+omni_range = 16.0
+
+[node name="Planet" type="StaticBody3D" parent="."]
+
+[node name="Ground" type="MeshInstance3D" parent="Planet"]
+position = Vector3(0, -0.5, 0)
+mesh = SubResource("Mesh_ground")
+material_override = SubResource("Mat_ground")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Planet"]
+position = Vector3(0, -0.5, 0)
+shape = SubResource("Shape_ground")
+
+[node name="Player" type="CharacterBody3D" parent="."]
+position = Vector3(0, 0.9, 5.5)
+script = ExtResource("1_player")
+camera_pivot = NodePath("CameraPivot")
+camera = NodePath("CameraPivot/Camera3D")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("Shape_player")
+
+[node name="Body" type="MeshInstance3D" parent="Player"]
+position = Vector3(0, 1.05, 0)
+mesh = SubResource("Mesh_body")
+material_override = SubResource("Mat_dress")
+
+[node name="Head" type="MeshInstance3D" parent="Player"]
+position = Vector3(0, 2.0, 0)
+mesh = SubResource("Mesh_head")
+material_override = SubResource("Mat_skin")
+
+[node name="Hair" type="MeshInstance3D" parent="Player/Head"]
+position = Vector3(0, 0.05, 0.07)
+scale = Vector3(1.07, 1.15, 1.03)
+mesh = SubResource("Mesh_head")
+material_override = SubResource("Mat_hair")
+
+[node name="TeddyBody" type="MeshInstance3D" parent="Player"]
+position = Vector3(0.48, 1.62, 0.03)
+scale = Vector3(0.42, 0.55, 0.38)
+mesh = SubResource("Mesh_head")
+material_override = SubResource("Mat_teddy")
+
+[node name="TeddyHead" type="MeshInstance3D" parent="Player"]
+position = Vector3(0.48, 1.95, 0.03)
+scale = Vector3(0.34, 0.34, 0.34)
+mesh = SubResource("Mesh_head")
+material_override = SubResource("Mat_teddy")
+
+[node name="CameraPivot" type="Node3D" parent="Player"]
+position = Vector3(0, 2.25, 0)
+rotation_degrees = Vector3(-17, 0, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Player/CameraPivot"]
+position = Vector3(0, 1.0, 6.6)
+current = true
+fov = 50.0
+
+[node name="SeedShrine" type="Node3D" parent="."]
+position = Vector3(-5.2, 0.15, -4.0)
+
+[node name="Pedestal" type="MeshInstance3D" parent="SeedShrine"]
+position = Vector3(0, 0.4, 0)
+mesh = SubResource("Mesh_ground")
+scale = Vector3(0.11, 0.35, 0.11)
+material_override = SubResource("Mat_ground")
+
+[node name="Seed" type="MeshInstance3D" parent="SeedShrine"]
+position = Vector3(0, 1.35, 0)
+scale = Vector3(0.28, 0.45, 0.28)
+mesh = SubResource("Mesh_head")
+material_override = SubResource("Mat_seed")
+
+[node name="SeedLight" type="OmniLight3D" parent="SeedShrine"]
+position = Vector3(0, 1.35, 0)
+light_color = Color(1, 0.55, 0.22, 1)
+light_energy = 4.5
+omni_range = 5.0
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Title" type="Label" parent="UI"]
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 520.0
+offset_bottom = 60.0
+theme_override_font_sizes/font_size = 24
+text = "Planet I — The Silent Garden"
+
+[node name="Hint" type="Label" parent="UI"]
+offset_left = 28.0
+offset_top = 62.0
+offset_right = 520.0
+offset_bottom = 90.0
+text = "WASD move · Mouse look · E awaken the seed"
+modulate = Color(1, 1, 1, 0.72)
+
+[node name="Message" type="Label" parent="UI"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -220.0
+offset_top = -92.0
+offset_right = 220.0
+offset_bottom = -42.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_font_sizes/font_size = 26
+text = "Find what this world has forgotten."
+horizontal_alignment = 1

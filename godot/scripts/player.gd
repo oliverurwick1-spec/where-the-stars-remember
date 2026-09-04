@@ -15,7 +15,6 @@ var orbit_pitch: float = -0.22
 var zoom_distance: float = 7.2
 var min_zoom: float = 3.8
 var max_zoom: float = 58.0
-var visual_forward_offset: float = PI
 var walk_time: float = 0.0
 
 @onready var girl: Node3D = get_node_or_null("Girl") as Node3D
@@ -62,9 +61,11 @@ func _physics_process(delta: float) -> void:
     var tangential_velocity: Vector3 = velocity - up * radial_velocity
 
     var cam_forward: Vector3 = -camera.global_transform.basis.z
-    cam_forward = (cam_forward - up * cam_forward.dot(up)).normalized()
+    cam_forward = cam_forward - up * cam_forward.dot(up)
     if cam_forward.length_squared() < 0.01:
-        cam_forward = transform.basis.z.cross(up).normalized()
+        cam_forward = -global_transform.basis.z
+        cam_forward = cam_forward - up * cam_forward.dot(up)
+    cam_forward = cam_forward.normalized()
     var cam_right: Vector3 = cam_forward.cross(up).normalized()
 
     var input_vec: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -73,10 +74,10 @@ func _physics_process(delta: float) -> void:
 
     if moving:
         direction = direction.normalized()
-        tangential_velocity = tangential_velocity.lerp(direction * move_speed, 1.0 - exp(-10.0 * delta))
+        tangential_velocity = tangential_velocity.lerp(direction * move_speed, 1.0 - exp(-11.0 * delta))
         _face_direction(direction, up, delta)
     else:
-        tangential_velocity = tangential_velocity.lerp(Vector3.ZERO, 1.0 - exp(-10.0 * delta))
+        tangential_velocity = tangential_velocity.lerp(Vector3.ZERO, 1.0 - exp(-12.0 * delta))
 
     radial_velocity -= gravity_strength * delta
     velocity = tangential_velocity + up * radial_velocity
@@ -87,51 +88,52 @@ func _physics_process(delta: float) -> void:
     _update_camera(delta)
 
 func _animate_character(delta: float, speed_ratio: float) -> void:
-    walk_time += delta * lerpf(2.2, 8.7, speed_ratio)
-    var stride: float = sin(walk_time) * 0.62 * speed_ratio
-    var knee: float = maxf(0.0, -sin(walk_time)) * 0.28 * speed_ratio
-    var idle: float = sin(Time.get_ticks_msec() * 0.0022)
+    walk_time += delta * lerpf(2.0, 7.4, speed_ratio)
+    var stride: float = sin(walk_time) * 0.48 * speed_ratio
+    var foot_roll_l: float = maxf(0.0, -sin(walk_time)) * 0.20 * speed_ratio
+    var foot_roll_r: float = maxf(0.0, sin(walk_time)) * 0.20 * speed_ratio
+    var idle: float = sin(Time.get_ticks_msec() * 0.0021)
 
     if arm_l:
-        arm_l.rotation.x = lerpf(arm_l.rotation.x, -stride * 0.72, 0.18)
-        arm_l.rotation.z = -0.10
+        arm_l.rotation.x = lerpf(arm_l.rotation.x, -stride * 0.62, 0.16)
+        arm_l.rotation.z = -0.08
     if arm_r:
-        arm_r.rotation.x = lerpf(arm_r.rotation.x, stride * 0.52, 0.18)
-        arm_r.rotation.z = 0.23
+        arm_r.rotation.x = lerpf(arm_r.rotation.x, stride * 0.45, 0.16)
+        arm_r.rotation.z = 0.21
     if leg_l:
-        leg_l.rotation.x = lerpf(leg_l.rotation.x, stride, 0.22)
+        leg_l.rotation.x = lerpf(leg_l.rotation.x, stride, 0.18)
     if leg_r:
-        leg_r.rotation.x = lerpf(leg_r.rotation.x, -stride, 0.22)
+        leg_r.rotation.x = lerpf(leg_r.rotation.x, -stride, 0.18)
     if foot_l:
-        foot_l.rotation.x = knee
+        foot_l.rotation.x = foot_roll_l
     if foot_r:
-        foot_r.rotation.x = maxf(0.0, sin(walk_time)) * 0.28 * speed_ratio
+        foot_r.rotation.x = foot_roll_r
     if girl:
-        girl.position.y = absf(sin(walk_time * 2.0)) * 0.035 * speed_ratio + idle * 0.012
-        girl.rotation.z = sin(walk_time) * 0.018 * speed_ratio
+        girl.position.y = absf(sin(walk_time * 2.0)) * 0.022 * speed_ratio + idle * 0.008
+        girl.rotation.z = sin(walk_time) * 0.010 * speed_ratio
     if skirt:
-        skirt.rotation.z = sin(walk_time + 0.5) * 0.025 * speed_ratio
+        skirt.rotation.z = sin(walk_time + 0.45) * 0.018 * speed_ratio
     if hair_l:
-        hair_l.rotation.x = -stride * 0.05 + idle * 0.02
+        hair_l.rotation.x = -stride * 0.035 + idle * 0.014
     if hair_r:
-        hair_r.rotation.x = stride * 0.05 - idle * 0.02
+        hair_r.rotation.x = stride * 0.035 - idle * 0.014
 
     if teddy:
-        teddy.rotation.z = -0.13 + sin(walk_time * 1.25) * 0.05 * speed_ratio + idle * 0.025
-        teddy.rotation.x = sin(walk_time * 1.6) * 0.035 * speed_ratio
-        teddy.position.y = 1.56 + absf(sin(walk_time * 2.0 + 0.8)) * 0.025 * speed_ratio
+        teddy.rotation.z = -0.13 + sin(walk_time * 1.3) * 0.035 * speed_ratio + idle * 0.018
+        teddy.rotation.x = sin(walk_time * 1.55) * 0.025 * speed_ratio
+        teddy.position.y = 1.56 + absf(sin(walk_time * 2.0 + 0.8)) * 0.018 * speed_ratio
     if teddy_arm:
-        teddy_arm.rotation.z = -0.55 + sin(Time.get_ticks_msec() * 0.004) * 0.18
+        teddy_arm.rotation.z = -0.55 + sin(Time.get_ticks_msec() * 0.004) * 0.14
     if teddy_ear_l:
-        teddy_ear_l.rotation.z = sin(Time.get_ticks_msec() * 0.003) * 0.08
+        teddy_ear_l.rotation.z = sin(Time.get_ticks_msec() * 0.003) * 0.055
     if teddy_ear_r:
-        teddy_ear_r.rotation.z = -sin(Time.get_ticks_msec() * 0.003) * 0.08
+        teddy_ear_r.rotation.z = -sin(Time.get_ticks_msec() * 0.003) * 0.055
 
 func _face_direction(direction: Vector3, up: Vector3, delta: float) -> void:
-    var desired_forward: Vector3 = -direction
-    var desired_right: Vector3 = up.cross(desired_forward).normalized()
-    desired_forward = desired_right.cross(up).normalized()
-    var desired_basis: Basis = Basis(desired_right, up, desired_forward).rotated(up, visual_forward_offset)
+    var forward: Vector3 = direction
+    var right: Vector3 = up.cross(forward).normalized()
+    forward = right.cross(up).normalized()
+    var desired_basis: Basis = Basis(right, up, -forward)
     var current_q: Quaternion = Quaternion(global_transform.basis.orthonormalized())
     var target_q: Quaternion = Quaternion(desired_basis.orthonormalized())
     global_transform.basis = Basis(current_q.slerp(target_q, 1.0 - exp(-turn_speed * delta)))

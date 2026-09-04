@@ -1,20 +1,20 @@
 extends CharacterBody3D
 
-@export var move_speed: float = 4.8
+@export var move_speed: float = 6.2
 @export var turn_speed: float = 10.0
 @export var camera_pivot: Node3D
 @export var camera: Camera3D
 
 const PLANET_CENTER := Vector3.ZERO
-const PLANET_RADIUS := 12.0
+const PLANET_RADIUS := 20.0
 
-var gravity_strength: float = 22.0
+var gravity_strength: float = 28.0
 var mouse_sensitivity: float = 0.0022
 var orbit_yaw: float = 0.0
 var orbit_pitch: float = -0.22
-var zoom_distance: float = 6.8
-var min_zoom: float = 5.5
-var max_zoom: float = 34.0
+var zoom_distance: float = 7.2
+var min_zoom: float = 3.8
+var max_zoom: float = 58.0
 var visual_forward_offset: float = PI
 
 func _ready() -> void:
@@ -30,9 +30,9 @@ func _unhandled_input(event) -> void:
         orbit_pitch = clampf(orbit_pitch - event.relative.y * mouse_sensitivity, -0.85, 0.35)
     elif event is InputEventMouseButton and event.pressed:
         if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-            zoom_distance = maxf(min_zoom, zoom_distance - 2.2)
+            zoom_distance = maxf(min_zoom, zoom_distance - 2.4)
         elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-            zoom_distance = minf(max_zoom, zoom_distance + 2.2)
+            zoom_distance = minf(max_zoom, zoom_distance + 3.2)
         else:
             Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
     elif event.is_action_pressed("ui_cancel"):
@@ -64,7 +64,6 @@ func _physics_process(delta: float) -> void:
     radial_velocity -= gravity_strength * delta
     velocity = tangential_velocity + up * radial_velocity
     move_and_slide()
-
     _update_camera(delta)
 
 func _face_direction(direction: Vector3, up: Vector3, delta: float) -> void:
@@ -91,13 +90,13 @@ func _update_camera(delta: float) -> void:
     var tangent_right := tangent_forward.cross(up).normalized()
     tangent_forward = Basis(tangent_right, orbit_pitch) * tangent_forward
 
-    var zoom_t: float = clampf((zoom_distance - 11.0) / (max_zoom - 11.0), 0.0, 1.0)
+    var zoom_t: float = clampf((zoom_distance - 14.0) / (max_zoom - 14.0), 0.0, 1.0)
     zoom_t = smoothstep(0.0, 1.0, zoom_t)
 
-    var close_target := global_position + up * 1.25
+    var close_target := global_position + up * 1.35
     var target := close_target.lerp(PLANET_CENTER, zoom_t)
-    var close_pos := close_target - tangent_forward * zoom_distance + up * 1.0
-    var orbit_dir := (up * 0.55 - tangent_forward * 0.83).normalized()
+    var close_pos := close_target - tangent_forward * zoom_distance + up * 0.8
+    var orbit_dir := (up * 0.52 - tangent_forward * 0.86).normalized()
     var far_pos := PLANET_CENTER + orbit_dir * zoom_distance
     var desired_pos := close_pos.lerp(far_pos, zoom_t)
 

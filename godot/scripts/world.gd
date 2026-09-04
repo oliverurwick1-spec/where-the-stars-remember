@@ -5,6 +5,8 @@ extends Node3D
 @export var dead_ground: MeshInstance3D
 @export var world_environment: WorldEnvironment
 
+const PLANET_RADIUS := 12.0
+
 var awakened: bool = false
 var bloom: float = 0.0
 var target_bloom: float = 0.0
@@ -37,6 +39,21 @@ func _process(delta: float) -> void:
     bloom = lerp(bloom, target_bloom, 1.0 - exp(-0.82 * delta))
     _apply_bloom(time)
 
+func _surface_point(x: float, z: float, lift: float = 0.0) -> Vector3:
+    var rr: float = x * x + z * z
+    var y: float = sqrt(maxf(0.0, PLANET_RADIUS * PLANET_RADIUS - rr))
+    var p := Vector3(x, y, z)
+    return p.normalized() * (PLANET_RADIUS + lift)
+
+func _align_to_surface(node: Node3D, normal: Vector3) -> void:
+    var forward := Vector3.FORWARD
+    if absf(forward.dot(normal)) > 0.92:
+        forward = Vector3.RIGHT
+    forward = (forward - normal * forward.dot(normal)).normalized()
+    var right := normal.cross(forward).normalized()
+    forward = right.cross(normal).normalized()
+    node.global_transform.basis = Basis(right, normal, forward)
+
 func _handle_puzzle() -> void:
     if awakened:
         return
@@ -66,29 +83,24 @@ func _animate_environment(time: float) -> void:
         var f: Node3D = flowers[i]
         var d: float = f.global_position.distance_to(player.global_position)
         var bend: float = clampf((1.8 - d) / 1.8, 0.0, 1.0)
-        f.rotation.z = sin(time * 2.1 + i * 0.73) * 0.045 + bend * 0.32
-        f.rotation.x = cos(time * 1.55 + i * 0.41) * 0.035
+        f.rotate_object_local(Vector3.FORWARD, sin(time * 2.1 + i * 0.73) * 0.001 + bend * 0.003)
     for i in range(grasses.size()):
         var g: Node3D = grasses[i]
         var d: float = g.global_position.distance_to(player.global_position)
         var push: float = clampf((1.25 - d) / 1.25, 0.0, 1.0)
-        g.rotation.z = sin(time * 1.9 + i * 0.37) * 0.04 + push * 0.26
+        g.rotate_object_local(Vector3.FORWARD, sin(time * 1.9 + i * 0.37) * 0.0008 + push * 0.003)
     for i in range(birds.size()):
         var b: Node3D = birds[i]
         var angle: float = time * (0.28 + i * 0.045) + i * 1.8
-        var radius: float = 6.5 + i * 1.25
-        var center := Vector3(-1.5, 0.0, -1.0)
-        b.position = center + Vector3(cos(angle) * radius, 4.7 + sin(angle * 2.0) * 0.55, sin(angle) * radius)
-        b.look_at(center + Vector3(cos(angle + 0.16) * radius, b.position.y, sin(angle + 0.16) * radius), Vector3.UP)
+        var radius: float = 15.5 + i * 0.55
+        b.position = Vector3(cos(angle) * radius, 6.0 + sin(angle * 2.0) * 1.1, sin(angle) * radius)
+        b.look_at(Vector3(cos(angle + 0.16) * radius, b.position.y, sin(angle + 0.16) * radius), Vector3.UP)
         var escape: float = clampf((4.5 - b.global_position.distance_to(player.global_position)) / 4.5, 0.0, 1.0)
-        b.position.y += escape * 2.7
-        for child in b.get_children():
-            if child is MeshInstance3D:
-                child.rotation.z += sin(time * 9.0 + i) * 0.018
+        b.position += b.global_position.normalized() * escape * 2.5
     for i in range(fireflies.size()):
         var fly: Node3D = fireflies[i]
-        fly.position.y = 0.7 + sin(time * 1.8 + i) * 0.35
-        fly.rotation.y += 0.01
+        var n := fly.global_position.normalized()
+        fly.global_position = n * (PLANET_RADIUS + 0.8 + sin(time * 1.8 + i) * 0.25)
 
 func _apply_bloom(time: float) -> void:
     if dead_ground and dead_ground.material_override:
@@ -103,18 +115,17 @@ func _apply_bloom(time: float) -> void:
     for i in range(flowers.size()):
         var flower: Node3D = flowers[i]
         var dist: float = flower.global_position.distance_to(bloom_origin)
-        var wave: float = bloom * 20.0 - dist
-        var life: float = clampf(wave * 0.55, 0.0, 1.0)
+        var wave: float = bloom * 24.0 - dist
+        var life: float = clampf(wave * 0.5, 0.0, 1.0)
         flower.scale = Vector3.ONE * maxf(0.001, ease(life, -1.8))
     for i in range(grasses.size()):
         var grass: Node3D = grasses[i]
         var dist: float = grass.global_position.distance_to(bloom_origin)
-        var life: float = clampf((bloom * 19.0 - dist) * 0.45, 0.0, 1.0)
-        grass.scale.y = maxf(0.05, ease(life, -1.4))
+        var life: float = clampf((bloom * 24.0 - dist) * 0.42, 0.0, 1.0)
+        grass.scale = Vector3.ONE * Vector3(1.0, maxf(0.05, ease(life, -1.4)), 1.0)
     for i in range(fireflies.size()):
         fireflies[i].visible = bloom > 0.35
     if seed_shrine:
-        seed_shrine.rotation.y = sin(time * 0.7) * 0.05
         seed_shrine.scale = Vector3.ONE * (1.0 + sin(time * 4.0) * 0.025)
 
 func _mat(color: Color, emission: float = 0.0) -> StandardMaterial3D:
@@ -131,26 +142,27 @@ func _build_rocks() -> void:
     var rock_mat := _mat(Color("5f5663"))
     for i in range(34):
         var a := rng.randf_range(0.0, TAU)
-        var r := rng.randf_range(3.0, 11.0)
+        var r := rng.randf_range(2.5, 10.5)
         var rock := MeshInstance3D.new()
         var mesh := SphereMesh.new()
         mesh.radius = rng.randf_range(0.18, 0.55)
         mesh.height = mesh.radius * 1.4
         rock.mesh = mesh
         rock.material_override = rock_mat
-        rock.position = Vector3(cos(a) * r, rng.randf_range(0.02, 0.16), sin(a) * r)
+        rock.global_position = _surface_point(cos(a) * r, sin(a) * r, mesh.radius * 0.35)
         rock.scale = Vector3(rng.randf_range(0.8, 1.6), rng.randf_range(0.45, 0.9), rng.randf_range(0.8, 1.4))
-        rock.rotation = Vector3(rng.randf(), rng.randf() * TAU, rng.randf())
         add_child(rock)
+        _align_to_surface(rock, rock.global_position.normalized())
 
 func _build_dead_trees() -> void:
     var trunk_mat := _mat(Color("4a3d42"))
     for i in range(7):
         var tree := Node3D.new()
         var a := i / 7.0 * TAU + 0.3
-        var r := 7.8 + (i % 2) * 1.5
-        tree.position = Vector3(cos(a) * r, 0.0, sin(a) * r)
+        var r := 7.2 + (i % 2) * 1.3
+        tree.global_position = _surface_point(cos(a) * r, sin(a) * r, 0.0)
         add_child(tree)
+        _align_to_surface(tree, tree.global_position.normalized())
         var trunk := MeshInstance3D.new()
         var mesh := CylinderMesh.new()
         mesh.top_radius = 0.11
@@ -158,7 +170,6 @@ func _build_dead_trees() -> void:
         mesh.height = 2.4 + (i % 3) * 0.35
         trunk.mesh = mesh
         trunk.position.y = mesh.height * 0.5
-        trunk.rotation.z = (i - 3) * 0.035
         trunk.material_override = trunk_mat
         tree.add_child(trunk)
         for j in range(3):
@@ -177,30 +188,28 @@ func _build_grass() -> void:
     var grass_mat := _mat(Color("6e7d59"))
     for i in range(180):
         var a := rng.randf_range(0.0, TAU)
-        var r := rng.randf_range(1.5, 11.7)
+        var r := rng.randf_range(1.0, 10.8)
         var blade := MeshInstance3D.new()
         var mesh := BoxMesh.new()
         mesh.size = Vector3(0.035, rng.randf_range(0.22, 0.42), 0.08)
         blade.mesh = mesh
-        blade.position = Vector3(cos(a) * r, mesh.size.y * 0.5, sin(a) * r)
-        blade.rotation.y = rng.randf_range(0.0, TAU)
-        blade.scale.y = 0.05
+        blade.global_position = _surface_point(cos(a) * r, sin(a) * r, mesh.size.y * 0.5)
         blade.material_override = grass_mat
         add_child(blade)
+        _align_to_surface(blade, blade.global_position.normalized())
+        blade.scale = Vector3(1.0, 0.05, 1.0)
         grasses.append(blade)
 
 func _build_foliage() -> void:
     var palette: Array[Color] = [Color("f1a9c2"), Color("d8b2ff"), Color("f7df8d"), Color("9fd4ff"), Color("f4f1df")]
     for i in range(130):
         var angle := rng.randf_range(0.0, TAU)
-        var radius := rng.randf_range(2.2, 11.5)
-        var p := Vector3(cos(angle) * radius, 0.05, sin(angle) * radius)
-        if p.distance_to(seed_shrine.position) < 1.3:
-            continue
+        var radius := rng.randf_range(1.8, 10.6)
         var flower := Node3D.new()
-        flower.position = p
+        flower.global_position = _surface_point(cos(angle) * radius, sin(angle) * radius, 0.0)
         flower.scale = Vector3.ONE * 0.001
         add_child(flower)
+        _align_to_surface(flower, flower.global_position.normalized())
         var stem := MeshInstance3D.new()
         var stem_mesh := CylinderMesh.new()
         stem_mesh.top_radius = 0.018
@@ -246,19 +255,20 @@ func _build_fireflies() -> void:
         glow.mesh = mesh
         glow.material_override = _mat(Color("ffe89a"), 5.0)
         var a := rng.randf_range(0.0, TAU)
-        var r := rng.randf_range(2.5, 9.5)
-        glow.position = Vector3(cos(a) * r, 0.7, sin(a) * r)
+        var r := rng.randf_range(2.0, 9.0)
+        glow.global_position = _surface_point(cos(a) * r, sin(a) * r, 0.8)
         glow.visible = false
         add_child(glow)
         fireflies.append(glow)
 
 func _build_resonators() -> void:
-    var positions: Array[Vector3] = [Vector3(-8.0, 0.0, 1.5), Vector3(2.5, 0.0, -8.0), Vector3(7.0, 0.0, 4.5)]
+    var xz: Array[Vector2] = [Vector2(-7.4, 1.5), Vector2(2.5, -7.4), Vector2(6.4, 4.2)]
     for i in range(3):
         var r := Node3D.new()
-        r.position = positions[i]
+        r.global_position = _surface_point(xz[i].x, xz[i].y, 0.0)
         r.set_meta("active", false)
         add_child(r)
+        _align_to_surface(r, r.global_position.normalized())
         var base := MeshInstance3D.new()
         var bm := CylinderMesh.new()
         bm.top_radius = 0.42

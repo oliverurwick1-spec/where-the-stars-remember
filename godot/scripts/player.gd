@@ -6,19 +6,23 @@ extends CharacterBody3D
 @export var camera: Camera3D
 
 var gravity: float = 18.0
-var mouse_sensitivity: float = 0.0026
+var mouse_sensitivity: float = 0.0024
 var pitch: float = -0.20
 var yaw: float = 0.0
+var camera_height: float = 2.25
 
 func _ready() -> void:
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-    yaw = rotation.y
+    yaw = 0.0
+    if camera_pivot:
+        camera_pivot.top_level = true
+        camera_pivot.global_position = global_position + Vector3(0.0, camera_height, 0.0)
     _update_camera_rotation()
 
 func _unhandled_input(event) -> void:
     if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
         yaw -= event.relative.x * mouse_sensitivity
-        pitch = clamp(pitch - event.relative.y * mouse_sensitivity, -0.58, 0.08)
+        pitch = clampf(pitch - event.relative.y * mouse_sensitivity, -0.58, 0.08)
         _update_camera_rotation()
     elif event.is_action_pressed("ui_cancel"):
         Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -32,19 +36,16 @@ func _physics_process(delta: float) -> void:
         velocity.y = -0.2
 
     var input_vec := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-    var cam_forward := -camera.global_transform.basis.z
-    cam_forward.y = 0.0
-    cam_forward = cam_forward.normalized()
-    var cam_right := camera.global_transform.basis.x
-    cam_right.y = 0.0
-    cam_right = cam_right.normalized()
-
+    var orbit_basis := Basis(Vector3.UP, yaw)
+    var cam_forward := -orbit_basis.z
+    var cam_right := orbit_basis.x
     var direction := cam_right * input_vec.x + cam_forward * -input_vec.y
+
     if direction.length() > 0.01:
         direction = direction.normalized()
         velocity.x = direction.x * move_speed
         velocity.z = direction.z * move_speed
-        var target_yaw := atan2(direction.x, direction.z)
+        var target_yaw: float = atan2(direction.x, direction.z)
         rotation.y = lerp_angle(rotation.y, target_yaw, 1.0 - exp(-turn_speed * delta))
     else:
         velocity.x = move_toward(velocity.x, 0.0, move_speed * 8.5 * delta)
@@ -52,7 +53,10 @@ func _physics_process(delta: float) -> void:
 
     move_and_slide()
 
+    if camera_pivot:
+        var desired_pos := global_position + Vector3(0.0, camera_height, 0.0)
+        camera_pivot.global_position = camera_pivot.global_position.lerp(desired_pos, 1.0 - exp(-12.0 * delta))
+
 func _update_camera_rotation() -> void:
     if camera_pivot:
-        camera_pivot.rotation.y = yaw
-        camera_pivot.rotation.x = pitch
+        camera_pivot.global_rotation = Vector3(pitch, yaw, 0.0)

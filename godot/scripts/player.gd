@@ -117,7 +117,6 @@ func _animate_character(delta: float, speed_ratio: float) -> void:
         hair_l.rotation.x = -stride * 0.035 + idle * 0.014
     if hair_r:
         hair_r.rotation.x = stride * 0.035 - idle * 0.014
-
     if teddy:
         teddy.rotation.z = -0.13 + sin(walk_time * 1.3) * 0.035 * speed_ratio + idle * 0.018
         teddy.rotation.x = sin(walk_time * 1.55) * 0.025 * speed_ratio
@@ -130,10 +129,10 @@ func _animate_character(delta: float, speed_ratio: float) -> void:
         teddy_ear_r.rotation.z = -sin(Time.get_ticks_msec() * 0.003) * 0.055
 
 func _face_direction(direction: Vector3, up: Vector3, delta: float) -> void:
-    var forward: Vector3 = direction
-    var right: Vector3 = up.cross(forward).normalized()
-    forward = right.cross(up).normalized()
-    var desired_basis: Basis = Basis(right, up, -forward)
+    var local_z: Vector3 = direction
+    var right: Vector3 = up.cross(local_z).normalized()
+    local_z = right.cross(up).normalized()
+    var desired_basis: Basis = Basis(right, up, local_z)
     var current_q: Quaternion = Quaternion(global_transform.basis.orthonormalized())
     var target_q: Quaternion = Quaternion(desired_basis.orthonormalized())
     global_transform.basis = Basis(current_q.slerp(target_q, 1.0 - exp(-turn_speed * delta)))
@@ -141,28 +140,23 @@ func _face_direction(direction: Vector3, up: Vector3, delta: float) -> void:
 func _update_camera(delta: float) -> void:
     if not camera:
         return
-
     var up: Vector3 = (global_position - PLANET_CENTER).normalized()
     var reference_forward: Vector3 = Vector3.FORWARD
     if absf(reference_forward.dot(up)) > 0.92:
         reference_forward = Vector3.RIGHT
     reference_forward = (reference_forward - up * reference_forward.dot(up)).normalized()
-
     var orbit_basis: Basis = Basis(up, orbit_yaw)
     var tangent_forward: Vector3 = orbit_basis * reference_forward
     var tangent_right: Vector3 = tangent_forward.cross(up).normalized()
     tangent_forward = Basis(tangent_right, orbit_pitch) * tangent_forward
-
     var zoom_t: float = clampf((zoom_distance - 14.0) / (max_zoom - 14.0), 0.0, 1.0)
     zoom_t = smoothstep(0.0, 1.0, zoom_t)
-
     var close_target: Vector3 = global_position + up * 1.35
     var target: Vector3 = close_target.lerp(PLANET_CENTER, zoom_t)
     var close_pos: Vector3 = close_target - tangent_forward * zoom_distance + up * 0.8
     var orbit_dir: Vector3 = (up * 0.52 - tangent_forward * 0.86).normalized()
     var far_pos: Vector3 = PLANET_CENTER + orbit_dir * zoom_distance
     var desired_pos: Vector3 = close_pos.lerp(far_pos, zoom_t)
-
     camera.global_position = camera.global_position.lerp(desired_pos, 1.0 - exp(-9.0 * delta))
     var desired_up: Vector3 = up.lerp(Vector3.UP, zoom_t).normalized()
     camera.look_at(target, desired_up)

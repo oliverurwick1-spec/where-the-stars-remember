@@ -1,62 +1,106 @@
 extends CharacterBody3D
 
 @export var move_speed: float = 4.8
-@export var turn_speed: float = 11.0
+@export var turn_speed: float = 10.0
 @export var camera_pivot: Node3D
 @export var camera: Camera3D
 
-var gravity: float = 18.0
-var mouse_sensitivity: float = 0.0024
-var pitch: float = -0.20
-var yaw: float = 0.0
-var camera_height: float = 2.25
+const PLANET_CENTER := Vector3.ZERO
+const PLANET_RADIUS := 12.0
+
+var gravity_strength: float = 22.0
+var mouse_sensitivity: float = 0.0022
+var orbit_yaw: float = 0.0
+var orbit_pitch: float = -0.22
+var zoom_distance: float = 6.8
+var min_zoom: float = 5.5
+var max_zoom: float = 34.0
+var visual_forward_offset: float = PI
 
 func _ready() -> void:
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-    yaw = 0.0
+    if camera:
+        camera.top_level = true
     if camera_pivot:
-        camera_pivot.top_level = true
-        camera_pivot.global_position = global_position + Vector3(0.0, camera_height, 0.0)
-    _update_camera_rotation()
+        camera_pivot.visible = false
 
 func _unhandled_input(event) -> void:
     if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-        yaw -= event.relative.x * mouse_sensitivity
-        pitch = clampf(pitch - event.relative.y * mouse_sensitivity, -0.58, 0.08)
-        _update_camera_rotation()
+        orbit_yaw -= event.relative.x * mouse_sensitivity
+        orbit_pitch = clampf(orbit_pitch - event.relative.y * mouse_sensitivity, -0.85, 0.35)
+    elif event is InputEventMouseButton and event.pressed:
+        if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+            zoom_distance = maxf(min_zoom, zoom_distance - 2.2)
+        elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+            zoom_distance = minf(max_zoom, zoom_distance + 2.2)
+        else:
+            Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
     elif event.is_action_pressed("ui_cancel"):
         Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-    elif event is InputEventMouseButton and event.pressed:
-        Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _physics_process(delta: float) -> void:
-    if not is_on_floor():
-        velocity.y -= gravity * delta
-    else:
-        velocity.y = -0.2
+    var up: Vector3 = (global_position - PLANET_CENTER).normalized()
+    up_direction = up
+
+    var radial_velocity: float = velocity.dot(up)
+    var tangential_velocity: Vector3 = velocity - up * radial_velocity
+
+    var cam_forward: Vector3 = -camera.global_transform.basis.z
+    cam_forward = (cam_forward - up * cam_forward.dot(up)).normalized()
+    if cam_forward.length_squared() < 0.01:
+        cam_forward = transform.basis.z.cross(up).normalized()
+    var cam_right: Vector3 = cam_forward.cross(up).normalized()
 
     var input_vec := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-    var orbit_basis := Basis(Vector3.UP, yaw)
-    var cam_forward := -orbit_basis.z
-    var cam_right := orbit_basis.x
-    var direction := cam_right * input_vec.x + cam_forward * -input_vec.y
+    var direction: Vector3 = cam_right * input_vec.x + cam_forward * -input_vec.y
 
-    if direction.length() > 0.01:
+    if direction.length_squared() > 0.01:
         direction = direction.normalized()
-        velocity.x = direction.x * move_speed
-        velocity.z = direction.z * move_speed
-        var target_yaw: float = atan2(direction.x, direction.z) + PI
-        rotation.y = lerp_angle(rotation.y, target_yaw, 1.0 - exp(-turn_speed * delta))
+        tangential_velocity = tangential_velocity.lerp(direction * move_speed, 1.0 - exp(-10.0 * delta))
+        _face_direction(direction, up, delta)
     else:
-        velocity.x = move_toward(velocity.x, 0.0, move_speed * 8.5 * delta)
-        velocity.z = move_toward(velocity.z, 0.0, move_speed * 8.5 * delta)
+        tangential_velocity = tangential_velocity.lerp(Vector3.ZERO, 1.0 - exp(-10.0 * delta))
 
+    radial_velocity -= gravity_strength * delta
+    velocity = tangential_velocity + up * radial_velocity
     move_and_slide()
 
-    if camera_pivot:
-        var desired_pos := global_position + Vector3(0.0, camera_height, 0.0)
-        camera_pivot.global_position = camera_pivot.global_position.lerp(desired_pos, 1.0 - exp(-12.0 * delta))
+    _update_camera(delta)
 
-func _update_camera_rotation() -> void:
-    if camera_pivot:
-        camera_pivot.global_rotation = Vector3(pitch, yaw, 0.0)
+func _face_direction(direction: Vector3, up: Vector3, delta: float) -> void:
+    var desired_forward := -direction
+    var desired_right := up.cross(desired_forward).normalized()
+    desired_forward = desired_right.cross(up).normalized()
+    var desired_basis := Basis(desired_right, up, desired_forward).rotated(up, visual_forward_offset)
+    var current_q := Quaternion(global_transform.basis.orthonormalized())
+    var target_q := Quaternion(desired_basis.orthonormalized())
+    global_transform.basis = Basis(current_q.slerp(target_q, 1.0 - exp(-turn_speed * delta)))
+
+func _update_camera(delta: float) -> void:
+    if not camera:
+        return
+
+    var up: Vector3 = (global_position - PLANET_CENTER).normalized()
+    var reference_forward := Vector3.FORWARD
+    if absf(reference_forward.dot(up)) > 0.92:
+        reference_forward = Vector3.RIGHT
+    reference_forward = (reference_forward - up * reference_forward.dot(up)).normalized()
+
+    var orbit_basis := Basis(up, orbit_yaw)
+    var tangent_forward := orbit_basis * reference_forward
+    var tangent_right := tangent_forward.cross(up).normalized()
+    tangent_forward = Basis(tangent_right, orbit_pitch) * tangent_forward
+
+    var zoom_t: float = clampf((zoom_distance - 11.0) / (max_zoom - 11.0), 0.0, 1.0)
+    zoom_t = smoothstep(0.0, 1.0, zoom_t)
+
+    var close_target := global_position + up * 1.25
+    var target := close_target.lerp(PLANET_CENTER, zoom_t)
+    var close_pos := close_target - tangent_forward * zoom_distance + up * 1.0
+    var orbit_dir := (up * 0.55 - tangent_forward * 0.83).normalized()
+    var far_pos := PLANET_CENTER + orbit_dir * zoom_distance
+    var desired_pos := close_pos.lerp(far_pos, zoom_t)
+
+    camera.global_position = camera.global_position.lerp(desired_pos, 1.0 - exp(-9.0 * delta))
+    var desired_up := up.lerp(Vector3.UP, zoom_t).normalized()
+    camera.look_at(target, desired_up)

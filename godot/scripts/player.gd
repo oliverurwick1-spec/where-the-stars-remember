@@ -45,7 +45,7 @@ func _physics_process(delta: float) -> void:
         direction = direction.normalized()
         velocity.x = direction.x * move_speed
         velocity.z = direction.z * move_speed
-        var target_yaw: float = atan2(direction.x, direction.z)
+        var target_yaw: float = atan2(direction.x, direction.z) + PI
         rotation.y = lerp_angle(rotation.y, target_yaw, 1.0 - exp(-turn_speed * delta))
     else:
         velocity.x = move_toward(velocity.x, 0.0, move_speed * 8.5 * delta)
